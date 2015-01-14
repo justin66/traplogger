@@ -1,0 +1,121 @@
+#!/usr/bin/perl -w
+# Copyright (c) 2001, Justin Simms, justins@dnai.com
+#
+# Permission is hereby granted, free of charge, to any person obtaining a 
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the 
+# Software is furnished to do so, subject to the following conditions:
+
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+# IN THE SOFTWARE.
+
+# traplogger version 1.0 - file "trapmond"
+
+use strict;
+
+# COMMAND LINE FORMAT IS:
+# "trapmon /logfile/directory/" OR
+# "trapmon /logfile/directory/,1" to turn on debugging to screen
+
+sub genfilename { # set a filename with date information
+  my ($startday,$startmonth,$startyear) = (localtime)[3,4,5];
+  $startmonth++;
+  $startyear = $startyear + 1900;
+  if ($startmonth < 10) {          # type schmipe
+    $startmonth = "0$startmonth";
+  }
+  if ($startday < 10) {
+    $startday = "0$startday";
+  }
+  my ($newstartday,$newstartmonth,$newstartyear);
+  my $logfile = "$startyear-$startmonth-$startday.dsl.log";
+  return $logfile
+} # end sub genfilename
+
+sub openfile { # open the log file and turn off buffering
+  my $filename = $_[0];
+  open (LOG,">>$filename") or die "couldna open the file: $!\n";
+  select (LOG);
+  $| = 1; 
+  select (STDOUT);
+} # end sub openfile
+
+sub parseinput {
+  my $logdir = $_[0];
+  my $debug = $_[1];
+  my $logname = genfilename();
+  openfile("$logdir$logname");
+  my $newlogname;
+  my (@entsplit,$time,$entstr) = (0,0,0);
+
+  while (<TRAPD>) {
+    $newlogname = genfilename();
+    if ($newlogname ne $logname) {
+      $logname = $newlogname;
+      close LOG;
+      openfile("$logdir$logname");
+    }
+
+    if ($debug == 1) {
+      print "$_\n";
+    }
+
+    chomp;
+    ($time,$entstr) = split /,/;
+    if ($entstr) {
+      # the string we're parsing from snmptrapd looks like:
+      #2001-09-26 18:48:33,    enterprises.3955.1.1.0 = "@in 24.26.198.27 27960 192.168.1.61 27960."
+      @entsplit = split /\"/,$entstr;
+      @entsplit = split /\s/,$entsplit[1];
+      if ($entsplit[0] eq '@in') {
+	chop $entsplit[4]; #remove trailing period
+	print LOG "$time,in,$entsplit[1],$entsplit[2],$entsplit[3],$entsplit[4]\n";
+      }
+      if ($entsplit[0] eq '@out') {
+	chop $entsplit[4];
+	print LOG "$time,out,$entsplit[1],$entsplit[2],$entsplit[3],$entsplit[4]\n";
+      }
+    }# end if
+    ($entsplit[0],$time,$entstr) = (0,0,0);
+  } # end while 
+
+} # end sub parseinput
+
+
+
+### MAIN ###
+my ($logdir,$lastchar,$debug) = (0,0,0);
+if ($ARGV[0]) { # very simple cmd line validity checking
+  $logdir = $ARGV[0];
+  $lastchar = substr($logdir,-1,1);
+  if ($lastchar ne "/") {
+    $logdir = "$logdir"."/";
+  }
+} else {
+  die "you must specify a directory on the cmd line for the logfiles!!!";
+}
+if ($ARGV[1]) {
+  if ($ARGV[1] == 1) {
+    $debug = 1;    # prints raw snmptrapd data to screen
+  }
+}
+if ($debug == 1) {
+  print "debug = $debug\n";
+}
+# start snmptrapd with pipe into our program
+my $cmdline = qq{snmptrapd -C -P -F "%y-%02.2m-%02.2l %02.2h:%02.2j:%02.2k,%v\n"};
+open (TRAPD,"$cmdline 2>&1 1>/dev/null |") or die "couldna open snmptrapd: $!";
+
+# process incoming records and write them to the log
+parseinput($logdir,$debug);
+### END MAIN ###

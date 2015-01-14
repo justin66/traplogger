@@ -1,0 +1,175 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<h2>traplogger&nbsp; v1.0</h2>
+<h3>a&nbsp;utility for logging activity on your Linksys DSL router<br>
+</h3>
+<hr width="100%" size="2" align="Left"><br>
+    Files:<br>
+<a href="https://web.archive.org/web/20020610094439/http://www.dnai.com/~justins/trapmon/trapmond">trapmond</a>
+      3.8KB md5 f20eb0b152837929d55e91a5728a2790<br>
+<a href="https://web.archive.org/web/20020610094439/http://www.dnai.com/~justins/trapmon/snapshot13.jpg">trapmon</a>
+      1.6KB md5 50be4a9fb0295d1a3295a73053c9371b<br>
+<hr width="100%" size="2" align="Left"><br>
+<a href="https://web.archive.org/web/20020610094439/http://www.dnai.com/~justins/trapmon/trapmond">This perl script</a>
+      is meant to be used with the  <a href="https://web.archive.org/web/20020610094439/http://net-snmp.sourceforge.net/man/snmptrapd.html">
+     snmptrapd</a>
+       utility found within the <a href="https://web.archive.org/web/20020610094439/http://net-snmp.sourceforge.net/">
+  NET-SNMP</a>
+      software package to  log network activity reported by a <a href="https://web.archive.org/web/20020610094439/http://www.linksys.com/products/group.asp?grid=5">
+     Linksys DSL router</a>
+      via SNMP. This script should run on any platform on which NET-SNMP
+runs, although I have not tested with Windows yet. The script and the snmptrapd 
+daemon that it invokes both have very modest memory and CPU requirements. 
+<br>
+<br>
+ Linksys DSL routers send their logging information via SNMP traps  to one 
+host on your  LAN or broadcast to all the hosts depending on how you  have 
+the router  configured. The script I'm providing invokes snmptrapd,  parses 
+its'  output as connections arrive, and writes incoming and outgoing  connection 
+data to a log file in a directory of your choosing.     
+<h4>Requirements<br>
+</h4>
+     You can run this script on any system that has a modern version of Perl
+  and a recent version of NET-SNMP. If you are running a commercial distribution 
+  of Linux it is quite likely these are included. Advice on how to build NET-SNMP
+  on unsupported platforms for which binaries are not available is beyond
+the  scope of this document. However I can offer one piece of advice: if
+trapmon  is the only reason you're compiling NET-SNMP, try a <a href="https://web.archive.org/web/20020610094439/http://net-snmp.sourceforge.net/FAQ.html#What_happens_if_mine_isn_t_listed_">
+     "minimal agent" build.</a>
+<br>
+<p>The script needs to be run as 'root' since snmptrapd needs to bind to a
+trusted tcp port. The following steps are required in order to make this script
+work:<br>
+</p>
+<ul>
+  <li>configure the router to send SNMP traps with logging information</li>
+  <li>verify that NET-SNMP is installed</li>
+  <li>copy <a href="https://web.archive.org/web/20020610094439/http://www.dnai.com/~justins/trapmon/trapmond">the script</a>
+      to a standard location on your system and make sure it's owned by root. 
+  I put it in /usr/local/bin but /usr/sbin or /usr/local/sbin might be more 
+  appropriate. (I put it in /usr/freeware/bin on my IRIX system)</li>
+  <li>make a directory to hold the logs, preferably owned by root. I use /var/log/trapmond<br>
+  </li>
+  <li>figure out how you will start the script. You might end up using the 
+  "trapmon" shell script, described further below.</li>
+</ul>
+<h4>Setup<br>
+</h4>
+<p>   In <a href="https://web.archive.org/web/20020610094439/http://www.dnai.com/~justins/trapmon/snapshot13.jpg">
+      this screenshot</a>
+      you can see how I  have configured my router to broadcast the logging 
+ info  to all the hosts  on the LAN by specifying a "255" address and selecting 
+ "enable." If you are only logging on one   host on the LAN and you're using 
+ static IP addresses you can specify that host's individual address.   </p>
+     Try "which snmptrapd" as root to verify NET-SNMP is installed. If you
+ see  no results try find / &nbsp;| grep snmptrapd . Still nothing? You probably 
+  need to install NET-SNMP.<br>
+<br>
+     To startup the script from the command line, as root type "trapmond
+/var/log/trapmond"   (or whatever you want your logs to be written). If you
+want to view  the raw snmptrapd output on your screen while the script operates,
+specify  the&nbsp; debug option on the command line, signified by a '1':
+"trapmond /var/log/trapmond 1"<br>
+<br>
+     Usually you'll want to run the script as a daemon at boot time. I'm
+providing   a <a href="https://web.archive.org/web/20020610094439/http://www.dnai.com/~justins/trapmon/trapmon">shell
+script</a>
+      to help with that. On a reasonably standard system with SysV init these 
+  steps should get this starting at boot time:<br>
+<ul>
+  <li>as mentioned above, make sure trapmond (the perl script) is installed 
+  in /usr/local/bin or somewhere similar and create your log file directory</li>
+  <li>copy trapmon (the shell script) to /etc/init.d and create these symbolic 
+  links:</li>
+  <li>cd /etc/init.d/rc3.d</li>
+  <li>ln -s /etc/init.d/trapmon K01trapmon</li>
+  <li>ln -s /etc/init.d/trapmon S99trapmon</li>
+  <li>cd /etc/init.d/rc5.d&nbsp;</li>
+  <li>ln -s /etc/init.d/trapmon K01trapmon</li>
+  <li>ln -s /etc/init.d/trapmon S99trapmon</li>
+  <li>view /etc/init.d/trapmon with a text editor and make sure the settings 
+  for LOGDIR and PATH are adequate. The LOGDIR value should match the log 
+file  directory you created and you can add entries to the PATH if something 
+isn't  being started properly (if snmptrapd or trapmond aren't in root's boot
+path<br>
+  </li>
+</ul>
+      Boom. It should startup properly next time you boot and you can do
+a  "ps -A | grep trap" to see the running processes. Browse the directory
+where logs are written to see incoming and outgoing connection activity.<br>
+<h4>Output<br>
+</h4>
+     The log files are comma-delimited and include the following fields:<br>
+     time/date, in/out(type), SourceAddress,SourcePort,DestinationAddress,DestinationPort<br>
+<br>
+     An example:<br>
+<tt>2001-09-27 01:18:13,in,195.12.147.175,27960,192.168.1.61,27960</tt><tt><br>
+</tt><tt>2001-09-27 01:22:17,out,192.168.1.61,32949,slashdot.org,80</tt><tt><br>
+</tt><tt>2001-09-27 01:22:18,out,192.168.1.61,32950,images2.slashdot.org,80</tt><tt><br>
+</tt><tt>2001-09-27 01:22:19,out,192.168.1.61,32951,images.slashdot.org,80</tt><tt><br>
+</tt><tt>2001-09-27 01:24:14,out,192.168.1.61,32952,www.dnai.com,80</tt><tt><br>
+</tt><tt>2001-09-27 01:29:18,out,192.168.1.61,32954,sourceforge.net,80</tt><tt><br>
+</tt><tt>2001-09-27 01:29:25,out,192.168.1.61,32955,net-snmp.sourceforge.net,80</tt><tt><br>
+</tt><tt>2001-09-27 01:31:22,in,211.109.111.174,80,216.15.60.120,1179</tt><tt><br>
+</tt><tt>2001-09-27 01:33:20,in,61.135.139.124,63623,216.15.60.120,111</tt><br>
+<br>
+     Note that in the destination addresses for outgoing connections the
+fully   resolved hostname will be shown if it is known. I'm assuming you
+won't need   TOO much explanation of what this stuff means or else you wouldn't 
+be interested   in the first place but some further information is available 
+at this site,   which looks good: http://www.robertgraham.com/pubs/firewall-seen.html 
+     
+<h4>Known Issues and Changes:</h4>
+<ul>
+  <li>I changed the name of the software from "trapmon" to "traplogger" because
+ every other program in the world that does something vaguely similar seems 
+to be named "trapmon." I wish I was joking. The file names remain the same 
+for brevity.<br>
+  </li>
+  <li>Killing the snmptrapd daemon will result in the trapmond script shutting 
+  down in a reasonably graceful manner. Killing the trapmond script, however, 
+  will result in the snmptrapd daemon floating in the background until the 
+ machine is rebooted. You will need to kill this daemon before you can start 
+ the trapmond script again since only one instance of snmptrapd can run, and
+ bind to port 161, at a time. When in doubt use the shell script to shut down
+ the trapmond daemon.</li>
+  <li>It would be nice if there were rpms or something which put the files
+  in the right place and created all the symlinks and such. Maybe I'll make
+  them someday.</li>
+  <li>Since they are reported via SNMP traps we could log crc errors if anyone 
+  is interested in those. Right now if you run from a console in debug mode
+  you can see these.</li>
+  <li>Should do better checking to see if the log file directory specified 
+  on the cmd. line is valid.<br>
+  </li>
+  <li>I'd like to find out with more certainty what Linksys models this will 
+  or will not work with. I am assuming it works with all the <a href="https://web.archive.org/web/20020610094439/http://www.linksys.com/products/group.asp?grid=5">
+     products</a>
+      which are supported by Linksys' own Windows <a href="ftp://ftp.linksys.com/pub/befsr41/logviewer.exe">
+     logviewer</a>
+      program.</li>
+</ul>
+<h4>Contact me!</h4>
+<a href="mailto:justins@dnai.com">Let me know</a>
+     if this works for you, or if it doesn't, or if you have suggestions
+about   how to make this better. Enjoy!<br>
+<hr width="100%" size="2" align="Left"><br>
+<h6>copyright 2001 Justin Simms<br>
+</h6>
+<br>
+<br>
+
+
+
+
+
+
+
+<!--
+     FILE ARCHIVED ON 9:44:39 Jun 10, 2002 AND RETRIEVED FROM THE
+     INTERNET ARCHIVE ON 7:47:46 Jan 14, 2015.
+     JAVASCRIPT APPENDED BY WAYBACK MACHINE, COPYRIGHT INTERNET ARCHIVE.
+
+     ALL OTHER CONTENT MAY ALSO BE PROTECTED BY COPYRIGHT (17 U.S.C.
+     SECTION 108(a)(3)).
+-->
+</body></html>
